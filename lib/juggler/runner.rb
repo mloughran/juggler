@@ -16,6 +16,11 @@ class Juggler
         @running.delete(job)
         beanstalk_job.delete
       end
+      job.errback do
+        @running.delete(job)
+        # Built in exponential backoff
+        beanstalk_job.decay
+      end
     rescue Beanstalk::TimedOut
     end
 
