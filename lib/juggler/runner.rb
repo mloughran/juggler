@@ -1,5 +1,15 @@
 class Juggler
   class Runner
+    class << self
+      def start
+        @started ||= begin
+          Signal.trap('INT') { EM.stop }
+          Signal.trap('TERM') { EM.stop }
+          true
+        end
+      end
+    end
+
     def initialize(method, concurrency, strategy)
       @strategy = strategy
       @concurrency = concurrency
@@ -28,6 +38,7 @@ class Juggler
       EM.add_periodic_timer do
         reserve if spare_slot?
       end
+      Runner.start
     end
 
     private
