@@ -14,45 +14,47 @@ class Juggler
       @strategy = strategy
       @concurrency = concurrency
       @queue = method.to_s
-      @running = []
     end
 
     def reserve
-      beanstalk_job = connection.reserve(0)
-      params = Marshal.load(beanstalk_job.body)
-      job = @strategy.call(params)
-      @running << job
-      job.callback do
-        @running.delete(job)
-        beanstalk_job.delete
+      reserve_call = connection.reserve
+      
+      reserve_call.callback do |job|
+        params = Marshal.load(job.body)
+        job_deferrable = @strategy.call(params)
+
+        job_deferrable.callback do
+          connection.delete(job)
+
+          EM.next_tick(method(:reserve))
+        end
+
+        job_deferrable.errback do
+          # TODO: exponential backoff
+          connection.release(job, 1)
+
+          EM.next_tick(method(:reserve))
+        end
       end
-      job.errback do
-        @running.delete(job)
-        # Built in exponential backoff
-        beanstalk_job.decay
+      
+      reserve_call.errback do |error|
+        puts "Error from reserve call: #{error}"
+        EM.add_timer(1, method(:reserve))
       end
-    rescue Beanstalk::TimedOut
     end
 
     def run
-      EM.add_periodic_timer do
-        reserve if spare_slot?
-      end
       Runner.start
+      @concurrency.times { reserve }
     end
 
     private
 
-    def spare_slot?
-      @running.size < @concurrency
-    end
-
     def connection
-      @pool ||= begin
-        pool = Beanstalk::Pool.new('localhost:11300')
-        pool.watch(@queue)
-        pool
-      end
+      @connection ||= EMJack::Connection.new({
+        :host => "localhost",
+        :tube => @queue
+      })
     end
   end
 end

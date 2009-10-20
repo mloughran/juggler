@@ -1,4 +1,4 @@
-require 'beanstalk-client'
+require 'em-jack'
 require 'eventmachine'
 
 class Juggler
@@ -16,7 +16,9 @@ class Juggler
     private
 
     def connection
-      @connection ||= Beanstalk::Pool.new('localhost:11300')
+      @connection ||= EMJack::Connection.new({
+        :host => "localhost"
+      })
     end
   end
 end
