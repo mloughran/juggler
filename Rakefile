@@ -4,7 +4,7 @@ require 'rake'
 begin
   require 'jeweler'
   Jeweler::Tasks.new do |gem|
-    gem.name = "juggler2"
+    gem.name = "juggler"
     gem.summary = %Q{Juggling background jobs with EventMachine and Beanstalkd}
     gem.description = %Q{Juggling background jobs with EventMachine and Beanstalkd}
     gem.email = "me@mloughran.com"
