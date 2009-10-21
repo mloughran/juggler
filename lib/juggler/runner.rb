@@ -32,6 +32,10 @@ class Juggler
         beanstalk_job.decay
       end
     rescue Beanstalk::TimedOut
+    rescue Beanstalk::NotConnected
+      Juggler.logger.fatal "Could not connect any beanstalk hosts. " \
+        "Retrying in 1s."
+      sleep 1
     end
 
     def run
