@@ -23,7 +23,7 @@ class Juggler
       begin
         params = Marshal.load(beanstalk_job.body)
       rescue => e
-        handle_exception(e, "Exception unmarshaling job")
+        handle_exception(e, "Exception unmarshaling #{@queue} job")
         beanstalk_job.delete
         return
       end
@@ -31,7 +31,7 @@ class Juggler
       begin
         job = @strategy.call(params)
       rescue => e
-        handle_exception(e, "Exception calling strategy")
+        handle_exception(e, "Exception calling #{@queue} strategy")
         beanstalk_job.decay
         return
       end
