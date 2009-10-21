@@ -36,12 +36,17 @@ class Juggler
         return
       end
 
+      EM::Timer.new(beanstalk_job.ttr - 2) do
+        job.fail(:timeout)
+      end
+
       @running << job
       job.callback do
         @running.delete(job)
         beanstalk_job.delete
       end
-      job.errback do
+      job.errback do |error|
+        Juggler.logger.info("#{@queue} job failed: #{error}")
         @running.delete(job)
         # Built in exponential backoff
         beanstalk_job.decay
