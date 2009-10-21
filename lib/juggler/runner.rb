@@ -49,7 +49,7 @@ class Juggler
 
     def connection
       @pool ||= begin
-        pool = Beanstalk::Pool.new('localhost:11300')
+        pool = Beanstalk::Pool.new(Juggler.hosts)
         pool.watch(@queue)
         pool
       end

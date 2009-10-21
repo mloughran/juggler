@@ -4,7 +4,11 @@ autoload :Logger, 'logger'
 
 class Juggler
   class << self
-    attr_writer :logger
+    attr_writer :hosts, :logger
+
+    def hosts
+      @hosts ||= ['localhost:11300']
+    end
 
     def logger
       @logger ||= begin
@@ -28,7 +32,7 @@ class Juggler
     private
 
     def connection
-      @connection ||= Beanstalk::Pool.new('localhost:11300')
+      @connection ||= Beanstalk::Pool.new(hosts)
     end
   end
 end
