@@ -19,7 +19,15 @@ class Juggler
 
     def reserve
       beanstalk_job = connection.reserve(0)
-      params = Marshal.load(beanstalk_job.body)
+
+      begin
+        params = Marshal.load(beanstalk_job.body)
+      rescue => e
+        handle_exception(e, "Exception unmarshaling job")
+        beanstalk_job.delete
+        return
+      end
+
       job = @strategy.call(params)
       @running << job
       job.callback do
@@ -49,6 +57,11 @@ class Juggler
 
     def spare_slot?
       @running.size < @concurrency
+    end
+
+    def handle_exception(e, message)
+      Juggler.logger.error "#{message}: #{e.class} #{e.message}"
+      Juggler.logger.debug e.backtrace.join("\n")
     end
 
     def connection
