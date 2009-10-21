@@ -28,7 +28,14 @@ class Juggler
         return
       end
 
-      job = @strategy.call(params)
+      begin
+        job = @strategy.call(params)
+      rescue => e
+        handle_exception(e, "Exception calling strategy")
+        beanstalk_job.decay
+        return
+      end
+
       @running << job
       job.callback do
         @running.delete(job)
