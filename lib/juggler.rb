@@ -22,7 +22,13 @@ class Juggler
     def throw(method, params, options = {})
       # TODO: Do some checking on the method
       connection.use(method.to_s)
-      connection.put(Marshal.dump(params))
+
+      priority = options[:priority] || 50
+      delay = 0
+      # Add 2s because we want to handle the timeout before beanstalk does
+      ttr = (options[:ttr] || 60) + 2
+
+      connection.put(Marshal.dump(params), priority, delay, ttr)
     end
 
     def juggle(method, concurrency = 1, &strategy)
