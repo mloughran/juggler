@@ -51,6 +51,9 @@ class Juggler
       Juggler.logger.fatal "Could not connect any beanstalk hosts. " \
         "Retrying in 1s."
       sleep 1
+    rescue => e
+      handle_exception(e, "Unhandled exception")
+      beanstalk_job.delete if beanstalk_job
     end
 
     def run
