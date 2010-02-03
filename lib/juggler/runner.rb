@@ -70,6 +70,11 @@ class Juggler
       reserve_call.callback do |job|
         @reserved = false
         
+        EM.next_tick {
+          # Reserve in next tick so that on error deletes get scheduled first
+          reserve_if_necessary
+        }
+
         begin
           params = Marshal.load(job.body)
         rescue => e
@@ -114,8 +119,6 @@ class Juggler
 
           reserve_if_necessary
         end
-        
-        reserve_if_necessary
       end
       
       reserve_call.errback do |error|
