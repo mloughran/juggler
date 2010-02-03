@@ -23,4 +23,4 @@ class Juggler
   end
 end
 
-require 'juggler/runner'
+Juggler.autoload 'Runner', 'juggler/runner'
