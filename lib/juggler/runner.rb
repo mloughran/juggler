@@ -70,7 +70,13 @@ class Juggler
       reserve_call.callback do |job|
         @reserved = false
         
-        params = Marshal.load(job.body)
+        begin
+          params = Marshal.load(job.body)
+        rescue => e
+          handle_exception(e, "Exception unmarshalling job")
+          connection.delete(job)
+          next
+        end
         
         if params == "__STOP__"
           connection.delete(job)
@@ -138,6 +144,11 @@ class Juggler
     end
 
     private
+
+    def handle_exception(e, message)
+      Juggler.logger.error "#{message}: #{e.message} (#{e.class})"
+      Juggler.logger.debug e.backtrace.join("\n")
+    end
 
     def connection
       @connection ||= EMJack::Connection.new({
