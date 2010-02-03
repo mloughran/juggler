@@ -73,7 +73,7 @@ class Juggler
         begin
           params = Marshal.load(job.body)
         rescue => e
-          handle_exception(e, "Exception unmarshalling job")
+          handle_exception(e, "Exception unmarshaling #{@queue} job")
           connection.delete(job)
           next
         end
@@ -86,7 +86,7 @@ class Juggler
         begin
           job_deferrable = @strategy.call(params)
         rescue => e
-          handle_exception(e, "Exception calling strategy")
+          handle_exception(e, "Exception calling #{@queue} strategy")
           
           # TODO: exponential backoff, error catching
           connection.release(job, :delay => 1)
