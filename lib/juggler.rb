@@ -6,7 +6,7 @@ class Juggler
     def throw(method, params, options = {})
       # TODO: Do some checking on the method
       connection.use(method.to_s)
-      connection.put(Marshal.dump(params))
+      connection.put(Marshal.dump(params), options)
     end
 
     def juggle(method, concurrency = 1, &strategy)
