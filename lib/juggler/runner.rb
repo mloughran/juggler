@@ -29,17 +29,21 @@ class Juggler
         # Trigger each runner to shut down
         @runners.each { |r| r.stop }
         
-        puts "Giving processes #{SHUTDOWN_GRACE}s grace period to exit"
+        Juggler.logger.info {
+          "Giving processes #{SHUTDOWN_GRACE}s grace period to exit"
+        }
         
         EM::PeriodicTimer.new(0.1) {
           if !@runners.any? { |r| r.running? }
-            puts "Exited cleanly"
+            Juggler.logger.info "Exited cleanly"
             EM.stop
           end
         }
         
         EM::Timer.new(SHUTDOWN_GRACE) do
-          puts "Force exited after #{SHUTDOWN_GRACE}s with tasks running"
+          Juggler.logger.info {
+            "Force exited after #{SHUTDOWN_GRACE}s with tasks running"
+          }
           EM.stop
         end
       end
@@ -100,7 +104,9 @@ class Juggler
         end
         
         @running << job
-        puts "DEBUG: Queue #{@queue}: Excecuting #{@running.size} jobs"
+        Juggler.logger.debug {
+          "Queue #{@queue}: Excecuting #{@running.size} jobs"
+        }
 
         job_deferrable.callback do
           @running.delete(job)
@@ -124,7 +130,7 @@ class Juggler
       reserve_call.errback do |error|
         @reserved = false
         
-        puts "Error from reserve call: #{error}"
+        Juggler.logger.warn "Reserve call failed: #{error}"
         
         # Wait 1s before reserving or we'll just get DEALINE_SOON again
         # "If the client issues a reserve command during the safety margin, 
