@@ -82,9 +82,17 @@ class Juggler
           connection.delete(job)
           next
         end
-        
-        # TODO: Catch errors
-        job_deferrable = @strategy.call(params)
+
+        begin
+          job_deferrable = @strategy.call(params)
+        rescue => e
+          handle_exception(e, "Exception calling strategy")
+          
+          # TODO: exponential backoff, error catching
+          connection.release(job, :delay => 1)
+          
+          next
+        end
         
         @running << job
         puts "DEBUG: Queue #{@queue}: Excecuting #{@running.size} jobs"
