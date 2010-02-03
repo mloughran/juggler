@@ -6,7 +6,7 @@ EM.run {
   Juggler.juggle(:http, 3) do |path|
     http = EM::Protocols::HttpClient.request({
       :host => "0.0.0.0",
-      :port => 3000,
+      :port => 4567,
       :request => path
     })
     http.callback do |response|

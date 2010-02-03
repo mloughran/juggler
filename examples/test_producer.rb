@@ -7,7 +7,7 @@ require 'juggler'
 EM.run {
   10.times do |i|
     path = ['/fast', '/slow'][i % 2]
-    Juggler.throw(:http, path)
+    Juggler.throw(:http, path, :ttr => 40)
   end
-  10.times { Juggler.throw(:timer, {:foo => 'bar'}) }
+  10.times { Juggler.throw(:timer, {:foo => 'bar'}, :ttr => 20) }
 }
