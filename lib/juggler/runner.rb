@@ -74,8 +74,11 @@ class Juggler
       reserve_call.callback do |job|
         @reserved = false
         
+        
+        
         EM.next_tick {
-          # Reserve in next tick so that on error deletes get scheduled first
+          # Reserve in next tick so that any errors during this reserve can be 
+          # excecuted before the next blocking reserve
           reserve_if_necessary
         }
 
@@ -91,39 +94,52 @@ class Juggler
           connection.delete(job)
           next
         end
+        
+        Juggler.logger.debug {
+          "Job #{job.jobid} body: #{params}"
+        }
 
         begin
           job_deferrable = @strategy.call(params)
         rescue => e
           handle_exception(e, "Exception calling #{@queue} strategy")
-          
-          # TODO: exponential backoff, error catching
-          connection.release(job, :delay => 1)
-          
+          release_for_retry(job)
           next
         end
         
-        @running << job
+        # job.stats do |stats|
+        #   Juggler.logger.debug { "Job #{job.jobid} stats: #{stats.inspect}" }
+        #   
+        #   EM::Timer.new(stats["ttr"] - 2) {
+        #     Juggler.logger.debug {
+        #       "Job timeout exceeded - failing"
+        #     }
+        #     job_deferrable.fail "Timeout"
+        #   }
+        # end
+        
+        @running << job_deferrable
         Juggler.logger.debug {
           "Queue #{@queue}: Excecuting #{@running.size} jobs"
         }
+        Juggler.logger.debug {
+          @running.map { |e| e.inspect }.join("\n")
+        }
 
         job_deferrable.callback do
-          @running.delete(job)
+          @running.delete(job_deferrable)
           
-          # TODO: error catching
-          connection.delete(job)
-
-          reserve_if_necessary
+          delete_job(job).callback {
+            reserve_if_necessary
+          }
         end
 
         job_deferrable.errback do |e|
-          @running.delete(job)
-          
-          # TODO: exponential backoff, error catching
-          connection.release(job, :delay => 1)
+          @running.delete(job_deferrable)
 
-          reserve_if_necessary
+          release_for_retry(job).callback {
+            reserve_if_necessary
+          }
         end
       end
       
@@ -131,6 +147,8 @@ class Juggler
         @reserved = false
         
         Juggler.logger.warn "Reserve call failed: #{error}"
+        
+        check_all_reserved_jobs
         
         # Wait 1s before reserving or we'll just get DEALINE_SOON again
         # "If the client issues a reserve command during the safety margin, 
@@ -172,6 +190,59 @@ class Juggler
         :host => "localhost",
         :tube => @queue
       })
+    end
+    
+    # TODO: exponential backoff
+    def release_for_retry(job)
+      dd = EM::DefaultDeferrable.new
+      Juggler.logger.debug { "Job #{job.jobid} releasing" }
+      stats_def = job.stats
+      stats_def.callback do |stats|
+        Juggler.logger.debug { "Job #{job.jobid} stats: #{stats.inspect}"}
+        
+        release_def = connection.release(job, :delay => 1)
+        
+        release_def.callback {
+          Juggler.logger.info { "Job #{job.jobid} released for retry" }
+          dd.succeed
+        }
+        release_def.errback {
+          Juggler.logger.error do
+            "Job #{job.jobid } release failed (could not release)"
+          end
+          dd.succeed
+        }
+      end
+      stats_def.errback {
+        Juggler.logger.error do
+          "Job #{job.jobid } release failed (could not retrieve stats)"
+        end
+        dd.succeed
+      }
+      dd
+    end
+    
+    def delete_job(job)
+      delete_def = connection.delete(job)
+      delete_def.callback do
+        Juggler.logger.debug "Job #{job.jobid} deleted"
+      end
+      delete_def.errback do
+        Juggler.logger.debug "Job #{job.jobid} delete operation failed"
+      end
+      delete_def
+    end
+    
+    def check_all_reserved_jobs
+      @running.each do |job|
+        puts "Checking job #{job.jobid}"
+        job.stats { |stats|
+          puts "Job #{job.jobid} has #{stats["time-left"]}s left"
+          if stats["time-left"] < 1
+            job.fail "Timed out"
+          end
+        }
+      end
     end
   end
 end

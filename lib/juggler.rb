@@ -1,14 +1,13 @@
 require 'em-jack'
 require 'eventmachine'
 
-autoload :Logger, 'logger'
-
 class Juggler
   class << self
     attr_writer :logger
 
     def logger
       @logger ||= begin
+        require 'logger'
         logger = Logger.new(STDOUT)
         logger.level = Logger::WARN
         logger.debug("Created logger")

@@ -23,3 +23,7 @@ For example
       end
       http
     end
+
+Important points to note:
+
+* If your deferrable code raises errors, this will not be handled by juggler.
