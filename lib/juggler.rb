@@ -36,3 +36,4 @@ class Juggler
 end
 
 Juggler.autoload 'Runner', 'juggler/runner'
+Juggler.autoload 'JobRunner', 'juggler/job_runner'
