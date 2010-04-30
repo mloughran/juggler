@@ -63,7 +63,7 @@ class Juggler
     # (unless we're already reserving)
     def reserve_if_necessary
       if @on && !@reserved && @running.size < @concurrency
-        puts "Choosing to reserve on queue #{@queue}"
+        Juggler.logger.debug "#{to_s}: Reserving"
         reserve
       end
     end
@@ -85,7 +85,7 @@ class Juggler
         begin
           params = Marshal.load(job.body)
         rescue => e
-          handle_exception(e, "Exception unmarshaling #{@queue} job")
+          handle_exception(e, "#{to_s}: Exception unmarshaling #{@queue} job")
           connection.delete(job)
           next
         end
@@ -95,16 +95,12 @@ class Juggler
           next
         end
         
-        Juggler.logger.debug {
-          "Job #{job.jobid} body: #{params}"
-        }
-        
         job_runner = JobRunner.new(job, params, @strategy)
         
         @running << job_runner
 
         Juggler.logger.debug {
-          "Queue #{@queue}: Excecuting #{@running.size} jobs"
+          "#{to_s}: Excecuting #{@running.size} jobs"
         }
 
         jdd = job_runner.run
@@ -121,9 +117,20 @@ class Juggler
       reserve_call.errback do |error|
         @reserved = false
         
-        Juggler.logger.warn "Reserve call failed: #{error}"
-        
-        check_all_reserved_jobs
+        if error == :deadline_soon
+          # This doesn't necessarily mean that a job has taken too long, it is 
+          # quite likely that the blocking reserve is just stopping jobs from 
+          # being deleted
+          Juggler.logger.debug "#{to_s}: Reserve terminated (deadline_soon)"
+          
+          # TODO: Check job timeout only if deadline_soon
+          check_all_reserved_jobs.callback {
+            reserve_if_necessary
+          }
+        else
+          Juggler.logger.error "#{to_s}: Unexpected error: #{error}"
+          reserve_if_necessary
+        end
       end
     end
 
@@ -145,6 +152,10 @@ class Juggler
     def running?
       @running.size > 0
     end
+    
+    def to_s
+      "Queue #{@queue}"
+    end
 
     private
 
@@ -160,23 +171,26 @@ class Juggler
       })
     end
     
+    # Iterates over all jobs reserved on this connection and fails them if 
+    # they're within 1s of their timeout. Returns a callback which completes 
+    # when all jobs have been checked
     def check_all_reserved_jobs
-      puts "TODO: Check all jobs"
+      dd = EM::DefaultDeferrable.new
       
       @running.each do |job_runner|
         job_runner.check_for_timeout
       end
       
-      
+      # TODO: do this properly
 
       # Wait 1s before reserving or we'll just get DEALINE_SOON again
       # "If the client issues a reserve command during the safety margin, 
       # <snip>, the server will respond with: DEADLINE_SOON"
       EM::Timer.new(1) do
-        reserve_if_necessary
+        dd.succeed
       end
       
-
+      dd
     end
   end
 end

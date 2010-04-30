@@ -6,36 +6,55 @@ class Juggler
       @job = job
       @params = params
       @strategy = strategy
+      Juggler.logger.debug {
+        "#{to_s}: New job with body: #{params}"
+      }
+      @state = :pending
     end
     
     def run
       dd = EM::DefaultDeferrable.new
-      Juggler.logger.info "Running #{@job.jobid}"
+      Juggler.logger.info "#{to_s}: Running"
       
       @running = run_strategy
+      @state = :running
       @running.callback {
-        delete
-        dd.succeed
+        @state = :success
+        delete.callback {
+          dd.succeed
+        }
       }
       @running.errback { |e|
-        release
-        dd.fail e
+        @state = :fail
+        delete.release {
+          dd.fail e
+        }
       }
       
       dd
     end
     
     def check_for_timeout
-      job.stats { |stats| 
-        puts "Job #{job.jobid} has #{stats["time-left"]}s left"
-        if stats["time-left"] < 1
-          @running.fail "Timed out"
-        end
-      }
+      if @state == :running
+        Juggler.logger.debug "#{to_s}: Fetching stats"
+        job.stats { |stats| 
+          Juggler.logger.debug "#{to_s}: #{stats["time-left"]}s left"
+          if stats["time-left"] < 1
+            @running.fail "Timed out"
+          end
+        }
+      end
+    end
+    
+    def to_s
+      "Job #{@job.jobid}"
     end
     
     private
     
+    # Wraps running the actual job.
+    # Returns a deferrable that fails if there is an exception calling the 
+    # strategy or if the strategy triggers errback
     def run_strategy
       dd = EM::DefaultDeferrable.new
       begin
@@ -45,6 +64,10 @@ class Juggler
         }
         job_deferrable.errback {
           dd.fail
+        }
+        # Ugliness warning: on timeout dd will be failed externally
+        dd.errback {
+          job_deferrable.fail
         }
       rescue => e
         handle_exception(e, "Exception calling strategy")
@@ -85,14 +108,16 @@ class Juggler
     end
     
     def delete
-      delete_def = job.delete
-      delete_def.callback do
+      dd = job.delete
+      dd.callback do
         Juggler.logger.debug "Job #{job.jobid} deleted"
+        dd.succeed
       end
-      delete_def.errback do
+      dd.errback do
         Juggler.logger.debug "Job #{job.jobid} delete operation failed"
+        dd.succeed
       end
-      delete_def
+      dd
     end
     
     def handle_exception(e, message)
