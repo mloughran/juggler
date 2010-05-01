@@ -1,5 +1,16 @@
+require 'juggler/state_machine'
+
 class Juggler
   class JobRunner
+    include StateMachine
+    
+    state :new
+    state :running, :enter => :run_strategy
+    state :succeeded, :enter => :delete
+    state :timed_out, :enter => [:fail_strategy, :release]
+    state :failed, :enter => :delete
+    state :done
+    
     attr_reader :job
     
     def initialize(job, params, strategy)
@@ -9,38 +20,20 @@ class Juggler
       Juggler.logger.debug {
         "#{to_s}: New job with body: #{params}"
       }
-      @state = :pending
+      @_state = :new
     end
     
     def run
-      dd = EM::DefaultDeferrable.new
-      Juggler.logger.info "#{to_s}: Running"
-      
-      @running = run_strategy
-      @state = :running
-      @running.callback {
-        @state = :success
-        delete.callback {
-          dd.succeed
-        }
-      }
-      @running.errback { |e|
-        @state = :fail
-        delete.release {
-          dd.fail e
-        }
-      }
-      
-      dd
+      change_state(:running)
     end
     
     def check_for_timeout
-      if @state == :running
+      if state == :running
         Juggler.logger.debug "#{to_s}: Fetching stats"
         job.stats { |stats| 
           Juggler.logger.debug "#{to_s}: #{stats["time-left"]}s left"
           if stats["time-left"] < 1
-            @running.fail "Timed out"
+            change_state(:timed_out)
           end
         }
       end
@@ -56,24 +49,24 @@ class Juggler
     # Returns a deferrable that fails if there is an exception calling the 
     # strategy or if the strategy triggers errback
     def run_strategy
-      dd = EM::DefaultDeferrable.new
       begin
-        job_deferrable = @strategy.call(@params)
-        job_deferrable.callback {
-          dd.succeed
+        sd = @strategy.call(@params)
+        sd.callback {
+          change_state(:succeeded)
         }
-        job_deferrable.errback {
-          dd.fail
+        sd.errback { |e|
+          # timed_out error is already handled
+          change_state(:failed) unless e == :timed_out
         }
-        # Ugliness warning: on timeout dd will be failed externally
-        dd.errback {
-          job_deferrable.fail
-        }
+        @strategy_deferrable = sd
       rescue => e
         handle_exception(e, "Exception calling strategy")
-        dd.fail
+        change_state(:failed)
       end
-      dd
+    end
+    
+    def fail_strategy
+      @strategy_deferrable.fail(:timed_out)
     end
     
     # TODO: exponential backoff
@@ -89,35 +82,33 @@ class Juggler
         release_def = job.release(:delay => 1)
         release_def.callback {
           Juggler.logger.info { "Job #{job.jobid} released for retry" }
-          dd.succeed
+          change_state(:done)
         }
         release_def.errback {
           Juggler.logger.error do
             "Job #{job.jobid } release failed (could not release)"
           end
-          dd.succeed
+          change_state(:done)
         }
       end
       stats_def.errback {
         Juggler.logger.error do
           "Job #{job.jobid } release failed (could not retrieve stats)"
         end
-        dd.succeed
+        change_state(:done)
       }
-      dd
     end
     
     def delete
       dd = job.delete
       dd.callback do
         Juggler.logger.debug "Job #{job.jobid} deleted"
-        dd.succeed
+        change_state(:done)
       end
       dd.errback do
         Juggler.logger.debug "Job #{job.jobid} delete operation failed"
-        dd.succeed
+        change_state(:done)
       end
-      dd
     end
     
     def handle_exception(e, message)
@@ -126,14 +117,3 @@ class Juggler
     end
   end
 end
-
-# job.stats do |stats|
-#   Juggler.logger.debug { "Job #{job.jobid} stats: #{stats.inspect}" }
-#   
-#   EM::Timer.new(stats["ttr"] - 2) {
-#     Juggler.logger.debug {
-#       "Job timeout exceeded - failing"
-#     }
-#     job_deferrable.fail "Timeout"
-#   }
-# end

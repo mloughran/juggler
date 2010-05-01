@@ -103,15 +103,12 @@ class Juggler
           "#{to_s}: Excecuting #{@running.size} jobs"
         }
 
-        jdd = job_runner.run
-        jdd.callback do
+        job_runner.run
+
+        job_runner.bind(:done) {
           @running.delete(job_runner)
           reserve_if_necessary
-        end
-        jdd.errback do |e|
-          @running.delete(job_runner)
-          reserve_if_necessary
-        end
+        }
       end
       
       reserve_call.errback do |error|
