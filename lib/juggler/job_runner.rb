@@ -5,7 +5,7 @@ class Juggler
     include StateMachine
     
     state :new
-    state :running, :enter => :run_strategy
+    state :running, :pre => :fetch_stats, :enter => :run_strategy
     state :succeeded, :enter => :delete
     state :timed_out, :enter => [:fail_strategy, :release]
     state :failed, :enter => :delete
@@ -29,13 +29,10 @@ class Juggler
     
     def check_for_timeout
       if state == :running
-        Juggler.logger.debug "#{to_s}: Fetching stats"
-        job.stats { |stats| 
-          Juggler.logger.debug "#{to_s}: #{stats["time-left"]}s left"
-          if stats["time-left"] < 1
-            change_state(:timed_out)
-          end
-        }
+        if (time_left = @end_time - Time.now) < 1
+          Juggler.logger.info("#{to_s}: Timed out (#{time_left}s left)")
+          change_state(:timed_out)
+        end
       end
     end
     
@@ -45,6 +42,27 @@ class Juggler
     
     private
     
+    # Retrives job stats from beanstalkd
+    def fetch_stats
+      dd = EM::DefaultDeferrable.new
+
+      Juggler.logger.debug { "#{to_s}: Fetching stats" }
+
+      stats_def = job.stats
+      stats_def.callback do |stats|
+        @stats = stats
+        @end_time = Time.now + stats["time-left"]
+        Juggler.logger.debug { "#{to_s} stats: #{stats.inspect}"}
+        dd.succeed
+      end
+      stats_def.errback {
+        Juggler.logger.error { "#{to_s}: Fetching stats failed" }
+        dd.fail
+      }
+
+      dd
+    end
+
     # Wraps running the actual job.
     # Returns a deferrable that fails if there is an exception calling the 
     # strategy or if the strategy triggers errback
@@ -75,25 +93,14 @@ class Juggler
       
       Juggler.logger.debug { "Job #{job.jobid} releasing" }
       
-      stats_def = job.stats
-      stats_def.callback do |stats|
-        Juggler.logger.debug { "Job #{job.jobid} stats: #{stats.inspect}"}
-        
-        release_def = job.release(:delay => 1)
-        release_def.callback {
-          Juggler.logger.info { "Job #{job.jobid} released for retry" }
-          change_state(:done)
-        }
-        release_def.errback {
-          Juggler.logger.error do
-            "Job #{job.jobid } release failed (could not release)"
-          end
-          change_state(:done)
-        }
-      end
-      stats_def.errback {
+      release_def = job.release(:delay => 1)
+      release_def.callback {
+        Juggler.logger.info { "Job #{job.jobid} released for retry" }
+        change_state(:done)
+      }
+      release_def.errback {
         Juggler.logger.error do
-          "Job #{job.jobid } release failed (could not retrieve stats)"
+          "Job #{job.jobid } release failed (could not release)"
         end
         change_state(:done)
       }

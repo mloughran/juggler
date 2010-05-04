@@ -75,12 +75,6 @@ class Juggler
       
       reserve_call.callback do |job|
         @reserved = false
-        
-        EM.next_tick {
-          # Reserve in next tick so that any errors during this reserve can be 
-          # excecuted before the next blocking reserve
-          reserve_if_necessary
-        }
 
         begin
           params = Marshal.load(job.body)
@@ -103,12 +97,18 @@ class Juggler
           "#{to_s}: Excecuting #{@running.size} jobs"
         }
 
-        job_runner.run
+        # We may reserve after job is running (after fetching stats)
+        job_runner.bind(:running) {
+          reserve_if_necessary
+        }
 
+        # Also may reserve when a job is done
         job_runner.bind(:done) {
           @running.delete(job_runner)
           reserve_if_necessary
         }
+
+        job_runner.run
       end
       
       reserve_call.errback do |error|
@@ -178,11 +178,12 @@ class Juggler
         job_runner.check_for_timeout
       end
       
-      # TODO: do this properly
-
       # Wait 1s before reserving or we'll just get DEALINE_SOON again
       # "If the client issues a reserve command during the safety margin, 
       # <snip>, the server will respond with: DEADLINE_SOON"
+      #
+      # In theory, one should not need to do this since reserve will already
+      # be triggered as a callback on the job that has timed out
       EM::Timer.new(1) do
         dd.succeed
       end

@@ -20,6 +20,29 @@ module Juggler::StateMachine
     
     return nil if old_state == new_state
     
+    if method = self.class.states[new_state][:pre]
+      deferable = self.send(method)
+      deferable.callback {
+        run_synchronous_callbacks(old_state, new_state)
+      }
+      deferable.errback {
+        Juggler.logger.warn "State change aborted - pre failed"
+      }
+    else
+      run_synchronous_callbacks(old_state, new_state)
+    end
+
+    return true
+  end
+
+  def bind(state, &callback)
+    @on_state ||= Hash.new { |h, k| h[k] = [] }
+    @on_state[state] << callback
+  end
+
+  private
+
+  def run_synchronous_callbacks(old_state, new_state)
     catch :halt do
       if callbacks = self.class.states[old_state][:exit]
         [callbacks].flatten.each { |c| self.send(c) }
@@ -35,13 +58,6 @@ module Juggler::StateMachine
     end
     
     @_state = new_state
-    
-    return true
-  end
-  
-  def bind(state, &callback)
-    @on_state = Hash.new { |h, k| h[k] = [] }
-    @on_state[state] << callback
   end
   
   module ClassMethods
