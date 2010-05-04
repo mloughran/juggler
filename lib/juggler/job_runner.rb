@@ -7,7 +7,7 @@ class Juggler
     state :new
     state :running, :pre => :fetch_stats, :enter => :run_strategy
     state :succeeded, :enter => :delete
-    state :timed_out, :enter => [:fail_strategy, :release]
+    state :timed_out, :enter => [:fail_strategy, :decay]
     state :failed, :enter => :delete
     state :done
     
@@ -86,22 +86,37 @@ class Juggler
     def fail_strategy
       @strategy_deferrable.fail(:timed_out)
     end
-    
-    # TODO: exponential backoff
-    def release
-      dd = EM::DefaultDeferrable.new
-      
-      Juggler.logger.debug { "Job #{job.jobid} releasing" }
-      
-      release_def = job.release(:delay => 1)
+
+    def release(delay = 0)
+      Juggler.logger.debug { "#{to_s}: releasing" }
+      release_def = job.release(:delay => delay)
       release_def.callback {
-        Juggler.logger.info { "Job #{job.jobid} released for retry" }
+        Juggler.logger.info { "#{to_s}: released for retry" }
         change_state(:done)
       }
       release_def.errback {
-        Juggler.logger.error do
-          "Job #{job.jobid } release failed (could not release)"
-        end
+        Juggler.logger.error { "#{to_s}: release failed (could not release)" }
+        change_state(:done)
+      }
+    end
+    
+    def decay
+      # 2, 3, 4, 6, 8, 11, 15, 20, ..., 72465
+      delay = ([1, @stats["delay"]].max * 1.3).ceil
+      if delay > 60 * 60 * 24
+        bury
+      else
+        release(delay)
+      end
+    end
+
+    def bury
+      Juggler.logger.warn { "#{to_s}: burying" }
+      release_def = job.bury(100000) # Set priority till em-jack fixed
+      release_def.callback {
+        change_state(:done)
+      }
+      release_def.errback {
         change_state(:done)
       }
     end
