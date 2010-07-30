@@ -18,7 +18,7 @@ class Juggler
       @params = params
       @strategy = strategy
       Juggler.logger.debug {
-        "#{to_s}: New job with body: #{params}"
+        "#{to_s}: New job with body: #{params.inspect}"
       }
       @_state = :new
     end
