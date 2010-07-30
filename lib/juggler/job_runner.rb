@@ -9,6 +9,7 @@ class Juggler
     state :succeeded, :enter => :delete
     state :timed_out, :enter => [:fail_strategy, :decay]
     state :failed, :enter => :delete
+    state :retried, :enter => :decay
     state :done
     
     attr_reader :job
@@ -74,7 +75,13 @@ class Juggler
         }
         sd.errback { |e|
           # timed_out error is already handled
-          change_state(:failed) unless e == :timed_out
+          unless e == :timed_out
+            if e == :retry
+              change_state(:retried)
+            else
+              change_state(:failed)
+            end
+          end
         }
         @strategy_deferrable = sd
       rescue => e

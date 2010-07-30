@@ -20,6 +20,8 @@ module Juggler::StateMachine
     
     return nil if old_state == new_state
     
+    raise "Invalid state #{new_state}" unless self.class.states[new_state]
+
     if method = self.class.states[new_state][:pre]
       deferable = self.send(method)
       deferable.callback {
