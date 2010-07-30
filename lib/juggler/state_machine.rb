@@ -1,6 +1,8 @@
-# Special event machine state machine
-# You can define callback on enter and on exit for methods
-# Methods can be async, which means that they will block until
+# Special eventmachine state machine
+#
+# Callbacks are defined for before :exit, :pre enter and after :enter
+# Asynchrous callbacks are not properly supported yet - only :pre must return
+# a deferrable which will continue the callback chain on complete
 # 
 # state :foobar, :enter => 'get_http'
 # 
@@ -50,16 +52,20 @@ module Juggler::StateMachine
         [callbacks].flatten.each { |c| self.send(c) }
       end
 
+      set_state(new_state)
+
       if callbacks = self.class.states[new_state][:enter]
         [callbacks].flatten.each { |c| self.send(c) }
       end
-      
-      if @on_state && (callbacks = @on_state[new_state])
-        callbacks.each { |c| c.call(self) }
-      end
     end
-    
+  end
+
+  def set_state(new_state)
     @_state = new_state
+
+    if @on_state && (callbacks = @on_state[new_state])
+      callbacks.each { |c| c.call(self) }
+    end
   end
   
   module ClassMethods
