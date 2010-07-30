@@ -86,7 +86,7 @@ class Juggler
         @strategy_deferrable = sd
       rescue => e
         handle_exception(e, "Exception calling strategy")
-        change_state(:failed)
+        change_state(:retried)
       end
     end
     
