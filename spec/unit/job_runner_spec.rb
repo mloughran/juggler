@@ -16,7 +16,7 @@ describe Juggler::JobRunner do
       job.should_receive(:delete).and_return(stub_deferrable(nil))
       
       strategy = lambda {
-        stub_deferrable(nil)
+        stub_deferrable(nil, 0.2)
       }
       
       jobrunner = Juggler::JobRunner.new(job, {}, strategy)
