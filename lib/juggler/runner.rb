@@ -163,7 +163,8 @@ class Juggler
 
     def connection
       @connection ||= EMJack::Connection.new({
-        :host => "localhost",
+        :host => Juggler.server.host,
+        :port => Juggler.server.port,
         :tube => @queue
       })
     end

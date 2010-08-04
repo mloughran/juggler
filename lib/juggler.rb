@@ -1,9 +1,18 @@
 require 'em-jack'
 require 'eventmachine'
+require 'uri'
 
 class Juggler
   class << self
     attr_writer :logger
+
+    def server=(uri)
+      @server = URI.parse(uri)
+    end
+
+    def server
+      @server ||= URI.parse("beanstalk://localhost:11300")
+    end
 
     def logger
       @logger ||= begin
@@ -34,7 +43,8 @@ class Juggler
 
     def connection
       @connection ||= EMJack::Connection.new({
-        :host => "localhost"
+        :host => server.host,
+        :port => server.port
       })
     end
   end
