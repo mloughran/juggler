@@ -5,6 +5,7 @@ require 'uri'
 class Juggler
   class << self
     attr_writer :logger
+    attr_writer :shutdown_grace_timeout
 
     def server=(uri)
       @server = URI.parse(uri)
@@ -12,6 +13,12 @@ class Juggler
 
     def server
       @server ||= URI.parse("beanstalk://localhost:11300")
+    end
+
+    # By default after receiving QUIT juggler will wait up to 2s for running
+    # jobs to complete before killing them
+    def shutdown_grace_timeout
+      @shutdown_grace_timeout || 2
     end
 
     def logger

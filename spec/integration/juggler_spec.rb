@@ -75,4 +75,28 @@ describe "Juggler" do
     end
     job_finished.should == true
   end
+  
+  it "should kill jobs that do not complete within shutdown_grace_timeout" do
+    job_finished = false
+    job_started = false
+    em(1) do
+      Juggler.shutdown_grace_timeout = 0.1
+      Juggler.juggle(:some_task, 1) { |params|
+        dd = EM::DefaultDeferrable.new
+        job_started = true
+        EM.add_timer(1) {
+          job_finished = true
+          dd.succeed
+        }
+        dd
+      }
+      Juggler.throw(:some_task, 'foo')
+      EM.add_timer(0.1) {
+        job_started.should == true
+        job_finished.should == false
+        Juggler::Runner.send(:stop_all_runners_with_grace)
+      }
+    end
+    job_finished.should == false
+  end
 end

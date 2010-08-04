@@ -6,8 +6,6 @@ class Juggler
   # eventmachine is stopped
   # 
   class Runner
-    SHUTDOWN_GRACE = 10
-    
     class << self
       def start(runner)
         @runners ||= []
@@ -40,7 +38,7 @@ class Juggler
           end
         }
         
-        EM::Timer.new(SHUTDOWN_GRACE) do
+        EM::Timer.new(Juggler.shutdown_grace_timeout) do
           Juggler.logger.info {
             "Force exited after #{SHUTDOWN_GRACE}s with tasks running"
           }
