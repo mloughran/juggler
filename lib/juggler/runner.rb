@@ -2,7 +2,7 @@ class Juggler
   # Stopping: This is rather complex. The point of the __STOP__ malarkey it to 
   # unblock a blocking reserve so that delete and release commands can be 
   # actioned on the currently running jobs before shutdown. Also a 
-  # SHUTDOWN_GRACE period is availble for jobs to complete before the 
+  # Juggler.shutdown_grace_timeout period is availble for jobs to complete before the 
   # eventmachine is stopped
   # 
   class Runner
@@ -28,7 +28,7 @@ class Juggler
         @runners.each { |r| r.stop }
         
         Juggler.logger.info {
-          "Giving processes #{SHUTDOWN_GRACE}s grace period to exit"
+          "Giving processes #{Juggler.shutdown_grace_timeout}s grace period to exit"
         }
         
         EM::PeriodicTimer.new(0.1) {
@@ -40,7 +40,7 @@ class Juggler
         
         EM::Timer.new(Juggler.shutdown_grace_timeout) do
           Juggler.logger.info {
-            "Force exited after #{SHUTDOWN_GRACE}s with tasks running"
+            "Force exited after #{Juggler.shutdown_grace_timeout}s with tasks running"
           }
           EM.stop
         end
