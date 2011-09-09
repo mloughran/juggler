@@ -132,7 +132,8 @@ class Juggler
     def run
       @on = true
       Runner.start(self)
-      reserve_if_necessary
+      # Creates beanstalkd connection - reserve happens on connect
+      connection
     end
 
     def stop
@@ -160,11 +161,17 @@ class Juggler
     end
 
     def connection
-      @connection ||= EMJack::Connection.new({
-        :host => Juggler.server.host,
-        :port => Juggler.server.port,
-        :tube => @queue
-      })
+      @connection ||= begin
+        c = EMJack::Connection.new({
+          :host => Juggler.server.host,
+          :port => Juggler.server.port,
+        })
+        c.on_connect {
+          c.watch(@queue)
+          reserve_if_necessary
+        }
+        c
+      end
     end
     
     # Iterates over all jobs reserved on this connection and fails them if 
