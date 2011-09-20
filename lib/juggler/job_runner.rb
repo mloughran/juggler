@@ -7,9 +7,9 @@ class Juggler
     state :new
     state :running, :pre => :fetch_stats, :enter => :run_strategy
     state :succeeded, :enter => :delete
-    state :timed_out, :enter => [:fail_strategy, :decay]
+    state :timed_out, :enter => [:timeout_strategy, :backoff]
     state :failed, :enter => :delete
-    state :retried, :enter => :decay
+    state :retried, :enter => :backoff
     state :done
     
     attr_reader :job
@@ -97,7 +97,7 @@ class Juggler
       end
     end
     
-    def fail_strategy
+    def timeout_strategy
       @strategy_deferrable.fail(:timed_out)
     end
 
@@ -114,7 +114,7 @@ class Juggler
       }
     end
     
-    def decay
+    def backoff
       # 2, 3, 4, 6, 8, 11, 15, 20, ..., 72465
       delay = ([1, @stats["delay"]].max * 1.3).ceil
       if delay > 60 * 60 * 24
