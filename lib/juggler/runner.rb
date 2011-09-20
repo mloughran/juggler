@@ -122,6 +122,8 @@ class Juggler
           check_all_reserved_jobs.callback {
             reserve_if_necessary
           }
+        elsif error == :disconnected
+          Juggler.logger.warn "#{to_s}: Reserve terminated (beanstalkd disconnected)"
         else
           Juggler.logger.error "#{to_s}: Unexpected error: #{error}"
           reserve_if_necessary
