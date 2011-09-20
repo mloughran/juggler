@@ -98,7 +98,7 @@ class Juggler
       Juggler.logger.debug { "#{to_s}: releasing" }
       release_def = job.release(:delay => delay)
       release_def.callback {
-        Juggler.logger.info { "#{to_s}: released for retry" }
+        Juggler.logger.info { "#{to_s}: released for retry in #{delay}s" }
         change_state(:done)
       }
       release_def.errback {
