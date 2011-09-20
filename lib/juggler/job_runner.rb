@@ -138,11 +138,11 @@ class Juggler
     def delete
       dd = job.delete
       dd.callback do
-        Juggler.logger.debug "Job #{job.jobid} deleted"
+        Juggler.logger.debug "#{to_s}: deleted"
         change_state(:done)
       end
       dd.errback do
-        Juggler.logger.debug "Job #{job.jobid} delete operation failed"
+        Juggler.logger.debug "#{to_s}: delete operation failed"
         change_state(:done)
       end
     end
