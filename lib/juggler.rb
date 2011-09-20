@@ -6,6 +6,7 @@ class Juggler
   class << self
     attr_writer :logger
     attr_writer :shutdown_grace_timeout
+    attr_accessor :exception_handler
 
     def server=(uri)
       @server = URI.parse(uri)
@@ -55,6 +56,12 @@ class Juggler
       })
     end
   end
+end
+
+# Default exception handler
+Juggler.exception_handler = Proc.new do |e|
+  Juggler.logger.error "Error running job: #{e.message} (#{e.class})"
+  Juggler.logger.debug e.backtrace.join("\n")
 end
 
 Juggler.autoload 'Runner', 'juggler/runner'

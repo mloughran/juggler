@@ -86,7 +86,7 @@ class Juggler
         }
         @strategy_deferrable = sd
       rescue => e
-        handle_exception(e, "Exception calling strategy")
+        Juggler.exception_handler.call(e)
         change_state(:retried)
       end
     end
@@ -139,11 +139,6 @@ class Juggler
         Juggler.logger.debug "Job #{job.jobid} delete operation failed"
         change_state(:done)
       end
-    end
-    
-    def handle_exception(e, message)
-      Juggler.logger.error "#{message}: #{e.message} (#{e.class})"
-      Juggler.logger.debug e.backtrace.join("\n")
     end
   end
 end
