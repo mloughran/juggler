@@ -117,8 +117,7 @@ class Juggler
           # quite likely that the blocking reserve is just stopping jobs from 
           # being deleted
           Juggler.logger.debug "#{to_s}: Reserve terminated (deadline_soon)"
-          
-          # TODO: Check job timeout only if deadline_soon
+
           check_all_reserved_jobs.callback {
             reserve_if_necessary
           }
