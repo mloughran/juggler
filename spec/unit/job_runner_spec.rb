@@ -66,34 +66,7 @@ describe Juggler::JobRunner do
     }
   end
   
-  it "should fail and delete job if strategy deferrable fails with no arg" do
-    em(1) {
-      job = mock(:job, {
-        :jobid => 1, 
-        :stats => stub_deferrable({"time-left" => 2})
-      })
-      
-      job.should_receive(:delete).and_return(stub_deferrable(nil))
-      
-      strategy = lambda { |params|
-        stub_failing_deferrable(nil)
-      }
-      
-      jobrunner = Juggler::JobRunner.new(job, {}, strategy)
-      jobrunner.run
-      
-      jobrunner.bind(:failed) {
-        @state = :failed
-      }
-      
-      jobrunner.bind(:done) { 
-        @state.should == :failed
-        done
-      }
-    }
-  end
-  
-  it "should retry job if strategy deferrable fails with :retry" do
+  it "should release job for retry if job fails with no arguments" do
     em(1) {
       job = mock(:job, {
         :jobid => 1, 
@@ -104,7 +77,7 @@ describe Juggler::JobRunner do
         and_return(stub_deferrable(nil))
       
       strategy = lambda { |params|
-        stub_failing_deferrable(:retry)
+        stub_failing_deferrable(nil)
       }
       
       jobrunner = Juggler::JobRunner.new(job, {}, strategy)
@@ -116,6 +89,33 @@ describe Juggler::JobRunner do
       
       jobrunner.bind(:done) { 
         @state.should == :retried
+        done
+      }
+    }
+  end
+  
+  it "should fail and delete job if job fails with :no_retry" do
+    em(1) {
+      job = mock(:job, {
+        :jobid => 1, 
+        :stats => stub_deferrable({"time-left" => 2, "delay" => 0})
+      })
+      
+      job.should_receive(:delete).and_return(stub_deferrable(nil))
+      
+      strategy = lambda { |params|
+        stub_failing_deferrable(:retry)
+      }
+      
+      jobrunner = Juggler::JobRunner.new(job, {}, strategy)
+      jobrunner.run
+      
+      jobrunner.bind(:failed) {
+        @state = :failed
+      }
+      
+      jobrunner.bind(:done) { 
+        @state.should == :failed
         done
       }
     }

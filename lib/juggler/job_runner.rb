@@ -75,12 +75,13 @@ class Juggler
         }
         sd.errback { |e|
           # timed_out error is already handled
-          unless e == :timed_out
-            if e == :retry
-              change_state(:retried)
-            else
-              change_state(:failed)
-            end
+          next if e == :timed_out
+
+          if e == :no_retry
+            # Do not schedule the job to be retried
+            change_state(:failed)
+          else
+            change_state(:retried)
           end
         }
         @strategy_deferrable = sd
