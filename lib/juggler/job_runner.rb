@@ -69,7 +69,8 @@ class Juggler
     # strategy or if the strategy triggers errback
     def run_strategy
       begin
-        sd = @strategy.call(@params)
+        sd = EM::DefaultDeferrable.new
+        @strategy.call(sd, @params)
         sd.callback {
           change_state(:succeeded)
         }

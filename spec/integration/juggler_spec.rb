@@ -22,9 +22,9 @@ describe "Juggler" do
   it "should successfully excecute one job" do
     em(1) do
       params_for_jobs_received = []
-      Juggler.juggle(:some_task, 1) { |params|
+      Juggler.juggle(:some_task, 1) { |df, params|
         params_for_jobs_received << params
-        stub_deferrable(nil)
+        df.succeed_later_with(nil)
       }
       Juggler.throw(:some_task, {:some => "params"})
       
@@ -38,9 +38,9 @@ describe "Juggler" do
   it "should run correct number of jobs concurrently" do
     em(1) do
       params_for_jobs_received = []
-      Juggler.juggle(:some_task, 2) { |params|
+      Juggler.juggle(:some_task, 2) { |df, params|
         params_for_jobs_received << params
-        stub_deferrable(nil, 0.2)
+        df.succeed_later_with(nil, 0.2)
       }
       
       10.times { |i| Juggler.throw(:some_task, i) }
@@ -57,14 +57,12 @@ describe "Juggler" do
     job_finished = false
     job_started = false
     em(1) do
-      Juggler.juggle(:some_task, 1) { |params|
-        dd = EM::DefaultDeferrable.new
+      Juggler.juggle(:some_task, 1) { |df, params|
         job_started = true
         EM.add_timer(0.2) {
           job_finished = true
-          dd.succeed
+          df.succeed
         }
-        dd
       }
       Juggler.throw(:some_task, 'foo')
       EM.add_timer(0.1) {

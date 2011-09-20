@@ -15,8 +15,8 @@ describe Juggler::JobRunner do
       
       job.should_receive(:delete).and_return(stub_deferrable(nil))
       
-      strategy = lambda { |params|
-        stub_deferrable(nil, 0.2)
+      strategy = lambda { |df, params|
+        df.succeed_later_with(nil, 0.2)
       }
       
       jobrunner = Juggler::JobRunner.new(job, {}, strategy)
@@ -48,7 +48,7 @@ describe Juggler::JobRunner do
       job.should_receive(:release).with({:delay => 2}).
         and_return(stub_deferrable(nil))
       
-      strategy = lambda { |params|
+      strategy = lambda { |df, params|
         raise 'strategy blows up'
       }
       
@@ -113,8 +113,8 @@ describe Juggler::JobRunner do
       job.should_receive(:release).with({:delay => 2}).
         and_return(stub_deferrable(nil))
       
-      strategy = lambda { |params|
-        stub_failing_deferrable(nil)
+      strategy = lambda { |df, params|
+        df.fail_later_with(nil)
       }
       
       jobrunner = Juggler::JobRunner.new(job, {}, strategy)
@@ -140,8 +140,8 @@ describe Juggler::JobRunner do
       
       job.should_receive(:delete).and_return(stub_deferrable(nil))
       
-      strategy = lambda { |params|
-        stub_failing_deferrable(:retry)
+      strategy = lambda { |df, params|
+        df.fail_later_with(:no_retry)
       }
       
       jobrunner = Juggler::JobRunner.new(job, {}, strategy)
@@ -168,8 +168,8 @@ describe Juggler::JobRunner do
       job.should_receive(:release).with({:delay => 2}).
         and_return(stub_deferrable(nil))
       
-      strategy = lambda { |params|
-        stub_deferrable(nil, 2)
+      strategy = lambda { |df, params|
+        df.succeed_later_with(nil, 2)
       }
       
       jobrunner = Juggler::JobRunner.new(job, {}, strategy)

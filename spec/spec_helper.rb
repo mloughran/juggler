@@ -19,9 +19,23 @@ module EM
       self
     end
   end
+
+  module Deferrable
+    def succeed_later_with(callback, time = 0)
+      EM.add_timer(time) {
+        succeed(callback)
+      }
+    end
+
+    def fail_later_with(callback, time = 0)
+      EM.add_timer(time) {
+        fail(callback)
+      }
+    end
+  end
 end
 
-def stub_deferrable(callback, time = 0.01)
+def stub_deferrable(callback, time = 0)
   d = EM::ChainableDeferrable.new
   EM.add_timer(time) {
     d.succeed(callback)
@@ -29,7 +43,7 @@ def stub_deferrable(callback, time = 0.01)
   d
 end
 
-def stub_failing_deferrable(callback, time = 0.01)
+def stub_failing_deferrable(callback, time = 0)
   d = EM::ChainableDeferrable.new
   EM.add_timer(time) {
     d.fail(callback)
