@@ -2,6 +2,8 @@ $:.unshift(File.join(File.dirname(__FILE__), '..', 'lib'))
 
 require 'juggler'
 
+Juggler.logger.level = Logger::FATAL
+
 require 'em-spec/rspec'
 
 module EM
