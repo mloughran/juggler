@@ -66,6 +66,43 @@ describe Juggler::JobRunner do
     }
   end
   
+  it "should release job for retry and call exception handler if job deferrable fails with an exception" do
+    asserts = 0
+
+    em(1) {
+      job = mock(:job, {
+        :jobid => 1,
+        :stats => stub_deferrable({"time-left" => 2, "delay" => 0})
+      })
+
+      job.should_receive(:release).with({:delay => 2}).
+        and_return(stub_deferrable(nil))
+
+      Juggler.exception_handler = lambda { |e|
+        e.message.should == "FAIL"
+        asserts += 1
+      }
+
+      strategy = lambda { |df, params|
+        EM.next_tick {
+          df.fail(RuntimeError.new("FAIL"))
+        }
+      }
+
+      jobrunner = Juggler::JobRunner.new(job, {}, strategy)
+      jobrunner.run
+
+      jobrunner.bind(:retried) {
+        asserts += 1
+      }
+
+      jobrunner.bind(:done) {
+        asserts.should == 2
+        done
+      }
+    }
+  end
+
   it "should release job for retry if job fails with no arguments" do
     em(1) {
       job = mock(:job, {

@@ -80,7 +80,12 @@ class Juggler
           if e == :no_retry
             # Do not schedule the job to be retried
             change_state(:failed)
+          elsif e.kind_of?(Exception)
+            # Handle exception and schedule for retry
+            Juggler.exception_handler.call(e)
+            change_state(:retried)
           else
+            Juggler.logger.debug { "#{to_s}: failed with #{e.inspect}" }
             change_state(:retried)
           end
         }
