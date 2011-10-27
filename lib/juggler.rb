@@ -7,6 +7,7 @@ class Juggler
     attr_writer :logger
     attr_writer :shutdown_grace_timeout
     attr_accessor :exception_handler
+    attr_accessor :backoff_function
 
     def server=(uri)
       @server = URI.parse(uri)
@@ -62,6 +63,17 @@ end
 Juggler.exception_handler = Proc.new do |e|
   Juggler.logger.error "Error running job: #{e.message} (#{e.class})"
   Juggler.logger.debug e.backtrace.join("\n")
+end
+
+# Default backoff function
+Juggler.backoff_function = Proc.new do |job_runner, age, last_delay|
+  # 2, 3, 4, 6, 8, 11, 15, 20, ..., 72465
+  delay = ([1, last_delay].max * 1.3).ceil
+  if delay > 60 * 60 * 24
+    job_runner.bury
+  else
+    job_runner.release(delay)
+  end
 end
 
 Juggler.autoload 'Runner', 'juggler/runner'

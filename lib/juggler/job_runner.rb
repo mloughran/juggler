@@ -41,6 +41,42 @@ class Juggler
       "Job #{@job.jobid}"
     end
     
+    def release(delay = 0)
+      Juggler.logger.debug { "#{to_s}: releasing" }
+      release_def = job.release(:delay => delay)
+      release_def.callback {
+        Juggler.logger.info { "#{to_s}: released for retry in #{delay}s" }
+        change_state(:done)
+      }
+      release_def.errback {
+        Juggler.logger.error { "#{to_s}: release failed (could not release)" }
+        change_state(:done)
+      }
+    end
+
+    def bury
+      Juggler.logger.warn { "#{to_s}: burying" }
+      release_def = job.bury(100000) # Set priority till em-jack fixed
+      release_def.callback {
+        change_state(:done)
+      }
+      release_def.errback {
+        change_state(:done)
+      }
+    end
+
+    def delete
+      dd = job.delete
+      dd.callback do
+        Juggler.logger.debug "#{to_s}: deleted"
+        change_state(:done)
+      end
+      dd.errback do
+        Juggler.logger.debug "#{to_s}: delete operation failed"
+        change_state(:done)
+      end
+    end
+
     private
     
     # Retrives job stats from beanstalkd
@@ -101,50 +137,8 @@ class Juggler
       @strategy_deferrable.fail(:timed_out)
     end
 
-    def release(delay = 0)
-      Juggler.logger.debug { "#{to_s}: releasing" }
-      release_def = job.release(:delay => delay)
-      release_def.callback {
-        Juggler.logger.info { "#{to_s}: released for retry in #{delay}s" }
-        change_state(:done)
-      }
-      release_def.errback {
-        Juggler.logger.error { "#{to_s}: release failed (could not release)" }
-        change_state(:done)
-      }
-    end
-    
     def backoff
-      # 2, 3, 4, 6, 8, 11, 15, 20, ..., 72465
-      delay = ([1, @stats["delay"]].max * 1.3).ceil
-      if delay > 60 * 60 * 24
-        bury
-      else
-        release(delay)
-      end
-    end
-
-    def bury
-      Juggler.logger.warn { "#{to_s}: burying" }
-      release_def = job.bury(100000) # Set priority till em-jack fixed
-      release_def.callback {
-        change_state(:done)
-      }
-      release_def.errback {
-        change_state(:done)
-      }
-    end
-    
-    def delete
-      dd = job.delete
-      dd.callback do
-        Juggler.logger.debug "#{to_s}: deleted"
-        change_state(:done)
-      end
-      dd.errback do
-        Juggler.logger.debug "#{to_s}: delete operation failed"
-        change_state(:done)
-      end
+      Juggler.backoff_function.call(self, @stats)
     end
   end
 end
