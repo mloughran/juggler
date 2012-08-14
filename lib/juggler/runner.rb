@@ -151,7 +151,7 @@ class Juggler
     end
     
     def to_s
-      "Queue #{@queue}"
+      "Tube #{@queue}"
     end
 
     private
