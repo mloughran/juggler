@@ -45,7 +45,7 @@ describe Juggler::JobRunner do
         :stats => stub_deferrable({"time-left" => 2, "delay" => 0})
       })
       
-      job.should_receive(:release).with({:delay => 2}).
+      job.should_receive(:release).with({:delay => 1}).
         and_return(stub_deferrable(nil))
       
       strategy = lambda { |df, params|
@@ -75,7 +75,7 @@ describe Juggler::JobRunner do
         :stats => stub_deferrable({"time-left" => 2, "delay" => 0})
       })
 
-      job.should_receive(:release).with({:delay => 2}).
+      job.should_receive(:release).with({:delay => 1}).
         and_return(stub_deferrable(nil))
 
       Juggler.exception_handler = lambda { |e|
@@ -110,7 +110,7 @@ describe Juggler::JobRunner do
         :stats => stub_deferrable({"time-left" => 2, "delay" => 0})
       })
       
-      job.should_receive(:release).with({:delay => 2}).
+      job.should_receive(:release).with({:delay => 1}).
         and_return(stub_deferrable(nil))
       
       strategy = lambda { |df, params|
@@ -165,7 +165,7 @@ describe Juggler::JobRunner do
         :stats => stub_deferrable({"time-left" => 1, "delay" => 0})
       })
       
-      job.should_receive(:release).with({:delay => 2}).
+      job.should_receive(:release).with({:delay => 1}).
         and_return(stub_deferrable(nil))
       
       strategy = lambda { |df, params|

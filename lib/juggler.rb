@@ -66,9 +66,9 @@ Juggler.exception_handler = Proc.new do |e|
 end
 
 # Default backoff function
-Juggler.backoff_function = Proc.new do |job_runner, age, last_delay|
+Juggler.backoff_function = Proc.new do |job_runner, job_stats|
   # 2, 3, 4, 6, 8, 11, 15, 20, ..., 72465
-  delay = ([1, last_delay].max * 1.3).ceil
+  delay = ([1, job_stats["delay"] * 1.3].max).ceil
   if delay > 60 * 60 * 24
     job_runner.bury
   else

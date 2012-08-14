@@ -43,7 +43,7 @@ By default, juggler will backoff jobs which failed exponentially using an expone
       # job_stats["age"] - the time since the put command that created this job
       # job_stats["delay"] - the previous amount of time delayed
 
-      new_delay = ([0.5, job_stats["delay"]].max * 2).to_i
+      new_delay = ([1, job_stats["delay"] * 2].max).ceil
       if job_stats["age"] > 300
         job_runner.delete
         # Or you could bury the job
