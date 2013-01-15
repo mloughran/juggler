@@ -48,13 +48,27 @@ class Juggler
       Runner.new(method, concurrency, strategy).run
     end
 
+    def on_disconnect(&blk)
+      @on_disconnect = blk
+    end
+
     private
 
     def connection
-      @connection ||= EMJack::Connection.new({
-        :host => server.host,
-        :port => server.port
-      })
+      @connection ||= begin
+        c = EMJack::Connection.new({
+          :host => server.host,
+          :port => server.port
+        })
+        c.on_disconnect {
+          if @on_disconnect
+            @on_disconnect.call
+          else
+            logger.warn "Disconnected"
+          end
+        }
+        c
+      end
     end
   end
 end
