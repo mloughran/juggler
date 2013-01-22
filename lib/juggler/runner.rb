@@ -154,10 +154,6 @@ class Juggler
       "Tube #{@queue}"
     end
 
-    def on_disconnect(&blk)
-      @on_disconnect = blk
-    end
-
     private
 
     def handle_exception(e, message)
@@ -176,11 +172,7 @@ class Juggler
           reserve_if_necessary
         }
         c.on_disconnect {
-          if @on_disconnect
-            @on_disconnect.call
-          else
-            Juggler.logger.warn "Disconnected"
-          end
+          Juggler.send(:disconnected)
         }
         c
       end
