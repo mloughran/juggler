@@ -8,6 +8,7 @@ class Juggler
     attr_writer :shutdown_grace_timeout
     attr_accessor :exception_handler
     attr_accessor :backoff_function
+    attr_accessor :serializer
 
     def server=(uri)
       @server = URI.parse(uri)
@@ -36,7 +37,7 @@ class Juggler
     def throw(method, params, options = {})
       # TODO: Do some checking on the method
       connection.use(method.to_s)
-      connection.put(Marshal.dump(params), options)
+      connection.put(Juggler.serializer.dump(params), options)
     end
 
     # Strategy block: should return a deferrable object (so that juggler can 
@@ -75,6 +76,8 @@ Juggler.backoff_function = Proc.new do |job_runner, job_stats|
     job_runner.release(delay)
   end
 end
+
+Juggler.serializer = Marshal
 
 Juggler.autoload 'Runner', 'juggler/runner'
 Juggler.autoload 'JobRunner', 'juggler/job_runner'
