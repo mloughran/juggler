@@ -75,9 +75,9 @@ class Juggler
         @reserved = false
 
         begin
-          params = Marshal.load(job.body)
+          params = Juggler.serializer.load(job.body)
         rescue => e
-          handle_exception(e, "#{to_s}: Exception unmarshaling #{@queue} job")
+          handle_exception(e, "#{to_s}: Exception unserializing #{@queue} job")
           connection.delete(job)
           next
         end
