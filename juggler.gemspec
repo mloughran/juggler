@@ -10,6 +10,7 @@ Gem::Specification.new do |s|
   s.description = %q{Juggling background jobs with EventMachine and Beanstalkd}
 
   s.add_runtime_dependency "em-jack", "~> 0.1.0"
+  s.add_runtime_dependency "eventmachine", "~> 1.0"
 
   s.add_development_dependency "em-spec"
   s.add_development_dependency "rake"
