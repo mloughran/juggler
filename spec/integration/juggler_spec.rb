@@ -6,7 +6,7 @@ describe "Juggler" do
   before :each do
     # Reset state
     Juggler.instance_variable_set(:@connection, nil)
-    Juggler::Runner.instance_variable_set(:@runners, nil)
+    Juggler::Runner.instance_variable_set(:@runners, [])
     
     # Start clean beanstalk instance for each test
     Juggler.server = "beanstalk://localhost:10001"

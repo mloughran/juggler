@@ -6,21 +6,26 @@ class Juggler
   # eventmachine is stopped
   # 
   class Runner
+    @runners = []
+
     class << self
       def start(runner)
-        @runners ||= []
         @runners << runner
         
         @signals_setup ||= begin
           %w{INT TERM}.each do |sig|
             Signal.trap(sig) {
-              stop_all_runners_with_grace
+              stop
             }
           end
           true
         end
       end
       
+      def stop
+        stop_all_runners_with_grace
+      end
+
       private
       
       def stop_all_runners_with_grace
