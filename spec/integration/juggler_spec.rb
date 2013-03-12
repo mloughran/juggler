@@ -53,7 +53,7 @@ describe "Juggler" do
     end
   end
   
-  it "should stop em after jobs completed when signaled to QUIT" do
+  it "should stop em after jobs completed when using Juggler.stop" do
     job_finished = false
     job_started = false
     em(1) do
@@ -68,7 +68,7 @@ describe "Juggler" do
       EM.add_timer(0.1) {
         job_started.should == true
         job_finished.should == false
-        Juggler::Runner.send(:stop_all_runners_with_grace)
+        Juggler.stop
       }
     end
     job_finished.should == true
@@ -92,7 +92,7 @@ describe "Juggler" do
       EM.add_timer(0.1) {
         job_started.should == true
         job_finished.should == false
-        Juggler::Runner.send(:stop_all_runners_with_grace)
+        Juggler.stop
       }
     end
     job_finished.should == false
