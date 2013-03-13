@@ -1,50 +1,40 @@
 class Juggler
-  # Stopping: This is rather complex. The point of the __STOP__ malarkey it to 
-  # unblock a blocking reserve so that delete and release commands can be 
-  # actioned on the currently running jobs before shutdown. Also a 
-  # Juggler.shutdown_grace_timeout period is availble for jobs to complete before the 
-  # eventmachine is stopped
-  # 
   class Runner
+    @runners = []
+
     class << self
       def start(runner)
-        @runners ||= []
         @runners << runner
-        
-        @signals_setup ||= begin
-          %w{INT TERM}.each do |sig|
-            Signal.trap(sig) {
-              stop_all_runners_with_grace
-            }
-          end
-          true
-        end
       end
       
-      private
-      
-      def stop_all_runners_with_grace
+      # Stop all runners (stops accepting new jobs)
+      #
+      # Returns a deferrable which succeeds when all jobs have finished or
+      # fails if some jobs are still running after a timeout (default 2s,
+      # configurable by setting Juggler.shutdown_grace_timeout)
+      def stop
+        df = EM::DefaultDeferrable.new
+
         # Trigger each runner to shut down
         @runners.each { |r| r.stop }
         
+        grace_time = Juggler.shutdown_grace_timeout
+
         Juggler.logger.info {
-          "Giving processes #{Juggler.shutdown_grace_timeout}s grace period to exit"
+          "Giving processes #{grace_time}s grace period to exit"
         }
         
         EM::PeriodicTimer.new(0.1) {
-          if !@runners.any? { |r| r.running? }
-            Juggler.logger.info "Exited cleanly"
-            EM.stop
-          end
+          df.succeed if !@runners.any? { |r| r.running? }
         }
         
-        EM::Timer.new(Juggler.shutdown_grace_timeout) do
-          Juggler.logger.info {
-            "Force exited after #{Juggler.shutdown_grace_timeout}s with tasks running"
-          }
-          EM.stop
-        end
+        EM::Timer.new(grace_time) { df.fail }
+
+        return df
       end
+
+      # Avoid breaking compatability
+      alias :stop_all_runners_with_grace :stop
     end
 
     def initialize(method, concurrency, strategy)
@@ -137,10 +127,14 @@ class Juggler
       connection
     end
 
+    # Stopping a runner causes it to stop reserving any new jobs and to cancel
+    # the current blocking reserve
     def stop
       @on = false
 
-      # See class documentation on stopping
+      # This is rather complex. The point of the __STOP__ malarkey it to
+      # unblock a blocking reserve so that delete and release commands can be
+      # actioned on the currently running jobs before shutdown.
       if @reserved
         Juggler.throw(@queue, "__STOP__")
       end

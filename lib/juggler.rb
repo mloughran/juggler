@@ -49,6 +49,22 @@ class Juggler
       Runner.new(method, concurrency, strategy).run
     end
 
+    # Stops all runners and then stops eventmachine (after all jobs are
+    # finished or 2s whichever is sooner). This can be configured via
+    # Juggler.shutdown_grace_timeout
+    #
+    # For more control use Juggler::Runner.stop directly
+    def stop
+      Juggler::Runner.stop.callback {
+        Juggler.logger.info "Exited cleanly"
+        EM.stop
+      }.errback {
+        t = Juggler.shutdown_grace_timeout
+        Juggler.logger.info "Force exited after #{t}s with tasks running"
+        EM.stop
+      }
+    end
+
     private
 
     def connection

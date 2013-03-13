@@ -30,6 +30,21 @@ The job is considered to have failed in the following cases:
 * If the block fails the passed deferrable
 * If the job timeout is exceeded. In this case the passed deferrable will be failed by juggler. If you need to clean up any state in this case (for example you might want to cancel a HTTP request) then you should bind to `df.errback`.
 
+## Stopping
+
+Juggler doesn't automatically add signal handlers any more. A sensible default stop strategy is:
+
+    # Set the maximum time to wait for jobs to finish, defaults to 2s
+    Juggler.shutdown_grace_timeout = 10
+
+    %w{INT TERM}.each do |sig|
+      Signal.trap(sig) {
+        Juggler.stop
+      }
+    end
+
+For more control see `Juggler::Runner.stop`, or you can stop runners individually.
+
 ## Customising behaviour
 
 ### Customising the back-off for failed jobs
