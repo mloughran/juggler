@@ -45,6 +45,14 @@ Juggler doesn't automatically add signal handlers any more. A sensible default s
 
 For more control see `Juggler::Runner.stop`, or you can stop runners individually.
 
+## Beanstalkd connection handling
+
+If the beanstalkd connection is dropped it will be re-established automatically by em-jack (even after the disconnect event). If the connection cannot be re-established after 5 (by default) attempts, a callback is fired. By default a warning is logged, but this can be changed
+
+    Juggler.on_disconnect {
+      # Do something
+    }
+
 ## Customising behaviour
 
 ### Customising the back-off for failed jobs
