@@ -165,6 +165,9 @@ class Juggler
           c.watch(@queue)
           reserve_if_necessary
         }
+        c.on_disconnect {
+          Juggler.send(:disconnected)
+        }
         c
       end
     end
