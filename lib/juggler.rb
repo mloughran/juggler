@@ -46,7 +46,7 @@ class Juggler
     # are responsible for cleaning up your state (for example cancelling any 
     # timers which you have created)
     def juggle(method, concurrency = 1, &strategy)
-      Runner.new(method, concurrency, strategy).run
+      Runner.new(method, concurrency, strategy).tap { |r| r.run }
     end
 
     # Stops all runners and then stops eventmachine (after all jobs are
