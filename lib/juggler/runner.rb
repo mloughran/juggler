@@ -144,6 +144,12 @@ class Juggler
       @running.size > 0
     end
     
+    # The number of jobs currently running.
+    # This will be between 0 and @concurrency.
+    def running_jobs
+      @running.size
+    end
+
     def to_s
       "Tube #{@queue}"
     end
