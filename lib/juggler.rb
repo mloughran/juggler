@@ -49,6 +49,47 @@ class Juggler
       Runner.new(method, concurrency, strategy).tap { |r| r.run }
     end
 
+    # Run sync code with Juggler. The code will be run in a thread pool by
+    # using EM.defer
+    #
+    # Important: Since the code will be ran in multiple threads you should
+    # take care to close thread local resources, for example ActiveRecord
+    # connections
+    #
+    # If the block returns without raising an exception or throwing, then the
+    # job is considered to have succeeded
+    #
+    # The job is considered to have failed if the block returns an exception
+    # or if :fail is thrown. A second argument may be passed to throw in which
+    # case it is treated in exactly the same way as the argument passed to `df.fail` in the async juggle version. For example
+    #
+    #     juggle_sync(:foo) { |params|
+    #       throw(:fail, :no_retry) if some_condition
+    #     }
+    #
+    def juggle_sync(method, concurrency = 1, &strategy)
+      defer_wrapper = lambda { |df, params|
+        EM.defer {
+          begin
+            success = nil
+            caught_response = catch(:fail) do
+              strategy.call(params)
+              success = true
+            end
+
+            if success
+              df.succeed
+            else
+              df.fail(caught_response)
+            end
+          rescue => e
+            df.fail(e)
+          end
+        }
+      }
+      Runner.new(method, concurrency, defer_wrapper).tap { |r| r.run }
+    end
+
     # Stops all runners and then stops eventmachine (after all jobs are
     # finished or 2s whichever is sooner). This can be configured via
     # Juggler.shutdown_grace_timeout
